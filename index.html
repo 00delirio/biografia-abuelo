@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bitácora de Recuerdos</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f2e6d0;
+            color: #3e2723;
+            margin: 0;
+            padding: 0;
+            line-height: 1.7;
+        }
+        .cuaderno {
+            max-width: 850px;
+            margin: 3rem auto;
+            background: #fdfaf2;
+            padding: 3rem;
+            border: 2px solid #d7ccc8;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.08);
+            border-radius: 4px;
+            position: relative;
+        }
+        .cuaderno::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 20px; bottom: 0;
+            width: 1px;
+            border-left: 1px dashed #d7ccc8;
+        }
+        header {
+            text-align: center;
+            border-bottom: 2px dashed #8d6e63;
+            padding-bottom: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+        header h1 {
+            font-size: 2.3rem;
+            margin: 0;
+            font-family: Georgia, serif;
+        }
+        .seccion-historia {
+            margin-bottom: 2.5rem;
+            padding-left: 15px;
+            animation: fadeIn 0.5s ease;
+        }
+        .seccion-historia h2 {
+            font-family: Georgia, serif;
+            color: #5d4037;
+            border-bottom: 1px solid #bcaaa4;
+            padding-bottom: 0.3rem;
+            margin-bottom: 0.5rem;
+        }
+        input, textarea, button {
+            font-family: 'Courier New', Courier, monospace;
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #a1887f;
+            background-color: #fffdf9;
+            color: #3e2723;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #8d6e63;
+            color: #fff;
+            cursor: pointer;
+            border: none;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #5d4037;
+        }
+        .admin-zone {
+            margin-top: 5rem;
+            border-top: 3px double #8d6e63;
+            padding-top: 2rem;
+        }
+        .hidden { display: none; }
+        .btn-admin-toggle {
+            background: none;
+            color: #8d6e63;
+            border: 1px dashed #8d6e63;
+            width: auto;
+            padding: 5px 15px;
+            font-size: 0.8rem;
+            display: block;
+            margin: 0 auto;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="cuaderno">
+        <header>
+            <h1>Bitácora de Recuerdos</h1>
+            <p>El legado e historia de nuestro abuelo</p>
+        </header>
+
+        <div id="contenedor-historias">
+            <p style="text-align: center;">Abriendo el libro de memorias...</p>
+        </div>
+
+        <button class="btn-admin-toggle" onclick="toggleAdmin()">[ Acceso Administrador ]</button>
+
+        <div id="admin-panel" class="admin-zone hidden">
+            <h3>Panel de Edición (Solo Administrador)</h3>
+            
+            <label>Contraseña de acceso:</label>
+            <input type="password" id="admin-pass" placeholder="Escribe la clave secreta">
+
+            <label>Título del Recuerdo:</label>
+            <input type="text" id="input-titulo" placeholder="Ej: Su infancia en el campo">
+
+            <label>Historia:</label>
+            <textarea id="input-texto" rows="6" placeholder="Escribe aquí los datos..."></textarea>
+
+            <button onclick="publicarHistoria()">Guardar permanentemente en Wikipedia Familiar</button>
+        </div>
+    </div>
+
+    <script>
+        // === CONFIGURACIÓN DE TU BASE DE DATOS ===
+        // REEMPLAZA ESTOS DOS TEXTOS ENTRE COMILLAS CON TUS DATOS DE SUPABASE:
+        const SUPABASE_URL = "https://jgcotonnvjpmqrtfbzbn.supabase.co/rest/v1/";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpnY290b25udmptcG1ydGZibmJ6bmkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY5ODQ4ODQ0OSwiZXhwIjoxOTk0NDg0NDQ5fQ.7s8j8hHqjK7l9aLh2eV8u9r3i7n9s8t5u4w3x2y1z0";
+        
+        const CLAVE_SECRETA = "admin123"; // Tu clave para editar en la web
+
+        // Función para cargar automáticamente las historias al abrir la página
+        async function cargarHistorias() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/historias?select=*&order=created_at.desc`, {
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`
+                    }
+                });
+                const datos = await response.json();
+                
+                const contenedor = document.getElementById('contenedor-historias');
+                contenedor.innerHTML = ""; // Limpiar mensaje de carga
+
+                if(datos.length === 0) {
+                    contenedor.innerHTML = "<p style='text-align:center;'>El libro está en blanco. Escribe la primera historia abajo.</p>";
+                    return;
+                }
+
+                datos.forEach(historia => {
+                    const nuevaSeccion = document.createElement('section');
+                    nuevaSeccion.className = 'seccion-historia';
+                    nuevaSeccion.innerHTML = `<h2>${historia.titulo}</h2><p>${historia.texto}</p>`;
+                    contenedor.appendChild(nuevaSeccion);
+                });
+            } catch (error) {
+                console.error("Error al cargar:", error);
+            }
+        }
+
+        function toggleAdmin() {
+            const panel = document.getElementById('admin-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        // Función para enviar los datos a la nube de Supabase
+        async function publicarHistoria() {
+            const clave = document.getElementById('admin-pass').value;
+            const titulo = document.getElementById('input-titulo').value;
+            const texto = document.getElementById('input-texto').value;
+
+            if (clave !== CLAVE_SECRETA) {
+                alert("Clave de administrador incorrecta");
+                return;
+            }
+
+            if (!titulo || !texto) {
+                alert("Por favor, rellena todos los campos.");
+                return;
+            }
+
+            try {
+                const response = await fetch(`${SUPABASE_URL}/rest/v1/historias`, {
+                    method: 'POST',
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`,
+                        "Content-Type": "application/json",
+                        "Prefer": "return=minimal"
+                    },
+                    body: JSON.stringify({ titulo: titulo, texto: texto })
+                });
+
+                if (response.ok) {
+                    alert("¡Historia guardada con éxito en la nube!");
+                    document.getElementById('input-titulo').value = '';
+                    document.getElementById('input-texto').value = '';
+                    cargarHistorias(); // Recargar la lista en pantalla
+                } else {
+                    alert("Hubo un problema al guardar.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+            }
+        }
+
+        // Ejecutar la carga apenas abre la página
+        cargarHistorias();
+    </script>
+</body>
+</html>
