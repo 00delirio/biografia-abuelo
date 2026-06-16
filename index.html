@@ -41,18 +41,53 @@
             margin: 0;
             font-family: Georgia, serif;
         }
+        
+        /* DISEÑO DE HISTORIA EN PARALELO (TEXTO Y FOTO) */
         .seccion-historia {
-            margin-bottom: 2.5rem;
+            margin-bottom: 3rem;
             padding-left: 15px;
             animation: fadeIn 0.5s ease;
+            border-bottom: 1px dashed #d7ccc8;
+            padding-bottom: 2rem;
         }
         .seccion-historia h2 {
             font-family: Georgia, serif;
             color: #5d4037;
             border-bottom: 1px solid #bcaaa4;
             padding-bottom: 0.3rem;
-            margin-bottom: 0.5rem;
+            margin-top: 0;
+            margin-bottom: 1rem;
         }
+        .contenido-bloque {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        .texto-recuerdo {
+            flex: 1;
+            margin: 0;
+        }
+        .foto-recuerdo {
+            width: 220px;
+            max-height: 280px;
+            object-fit: cover;
+            border: 6px solid #fff;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.15);
+            transform: rotate(-1s); /* Ligero toque rústico inclinado */
+            background-color: #fff;
+        }
+
+        /* Responsive para celulares */
+        @media (max-width: 600px) {
+            .contenido-bloque {
+                flex-direction: column;
+            }
+            .foto-recuerdo {
+                width: 100%;
+                max-height: 250px;
+            }
+        }
+
         input, textarea, button {
             font-family: 'Courier New', Courier, monospace;
             width: 100%;
@@ -119,22 +154,24 @@
             <label>Título del Recuerdo:</label>
             <input type="text" id="input-titulo" placeholder="Ej: Su infancia en el campo">
 
+            <label>Dirección (URL) de la Imagen (Opcional):</label>
+            <input type="text" id="input-imagen" placeholder="Ej: https://sitio.com/foto.jpg">
+
             <label>Historia:</label>
             <textarea id="input-texto" rows="6" placeholder="Escribe aquí los datos..."></textarea>
 
-            <button onclick="publicarHistoria()">Guardar permanentemente en Wikipedia Familiar</button>
+            <button onclick="publicarHistoria()">Guardar permanentemente en el libro</button>
         </div>
     </div>
 
     <script>
-        // === CONFIGURACIÓN DE TU BASE DE DATOS ===
-        // REEMPLAZA ESTOS DOS TEXTOS ENTRE COMILLAS CON TUS DATOS DE SUPABASE:
+        // === TU CONFIGURACIÓN DE BASE DE DATOS ===
+        // RECUERDA COLOCAR AQUÍ TUS MISMOS DATOS ANTERIORES DE SUPABASE:
         const SUPABASE_URL = "https://jgcotonnvjpmqrtfbzbn.supabase.co/rest/v1/";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpnY290b25udmptcG1ydGZibmJ6bmkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTY5ODQ4ODQ0OSwiZXhwIjoxOTk0NDg0NDQ5fQ.7s8j8hHqjK7l9aLh2eV8u9r3i7n9s8t5u4w3x2y1z0";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpnY290b25udmptcG1ydGZic2J6bmwiLCJyb2xlIjoi";
         
-        const CLAVE_SECRETA = "admin123"; // Tu clave para editar en la web
+        const CLAVE_SECRETA = "admin123"; 
 
-        // Función para cargar automáticamente las historias al abrir la página
         async function cargarHistorias() {
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/historias?select=*&order=created_at.desc`, {
@@ -146,7 +183,7 @@
                 const datos = await response.json();
                 
                 const contenedor = document.getElementById('contenedor-historias');
-                contenedor.innerHTML = ""; // Limpiar mensaje de carga
+                contenedor.innerHTML = ""; 
 
                 if(datos.length === 0) {
                     contenedor.innerHTML = "<p style='text-align:center;'>El libro está en blanco. Escribe la primera historia abajo.</p>";
@@ -156,7 +193,21 @@
                 datos.forEach(historia => {
                     const nuevaSeccion = document.createElement('section');
                     nuevaSeccion.className = 'seccion-historia';
-                    nuevaSeccion.innerHTML = `<h2>${historia.titulo}</h2><p>${historia.texto}</p>`;
+                    
+                    // Verificamos si la historia guardada tiene un enlace de imagen válido
+                    let bloqueImagen = "";
+                    if (historia.imagen && historia.imagen.trim() !== "") {
+                        bloqueImagen = `<img class="foto-recuerdo" src="${historia.imagen}" alt="Foto del recuerdo">`;
+                    }
+
+                    // Armamos la estructura de la historia con el texto y la foto lado a lado
+                    nuevaSeccion.innerHTML = `
+                        <h2>${historia.titulo}</h2>
+                        <div class="contenido-bloque">
+                            <p class="texto-recuerdo">${historia.texto}</p>
+                            ${bloqueImagen}
+                        </div>
+                    `;
                     contenedor.appendChild(nuevaSeccion);
                 });
             } catch (error) {
@@ -169,10 +220,10 @@
             panel.classList.toggle('hidden');
         }
 
-        // Función para enviar los datos a la nube de Supabase
         async function publicarHistoria() {
             const clave = document.getElementById('admin-pass').value;
             const titulo = document.getElementById('input-titulo').value;
+            const imagen = document.getElementById('input-imagen').value;
             const texto = document.getElementById('input-texto').value;
 
             if (clave !== CLAVE_SECRETA) {
@@ -181,7 +232,7 @@
             }
 
             if (!titulo || !texto) {
-                alert("Por favor, rellena todos los campos.");
+                alert("Por favor, rellena los campos de Título e Historia.");
                 return;
             }
 
@@ -194,14 +245,15 @@
                         "Content-Type": "application/json",
                         "Prefer": "return=minimal"
                     },
-                    body: JSON.stringify({ titulo: titulo, texto: texto })
+                    body: JSON.stringify({ titulo: titulo, texto: texto, imagen: imagen })
                 });
 
                 if (response.ok) {
-                    alert("¡Historia guardada con éxito en la nube!");
+                    alert("¡Recuerdo e imagen guardados con éxito!");
                     document.getElementById('input-titulo').value = '';
+                    document.getElementById('input-imagen').value = '';
                     document.getElementById('input-texto').value = '';
-                    cargarHistorias(); // Recargar la lista en pantalla
+                    cargarHistorias(); 
                 } else {
                     alert("Hubo un problema al guardar.");
                 }
@@ -210,7 +262,6 @@
             }
         }
 
-        // Ejecutar la carga apenas abre la página
         cargarHistorias();
     </script>
 </body>
